@@ -1,72 +1,70 @@
 import { globalShortcut } from 'electron';
-import { keyboard, Key, screen, Point} from '@nut-tree/nut-js';
+import { keyboard, Key, screen, Point } from '@nut-tree/nut-js';
 
-let checkInterval: NodeJS.Timeout | undefined
-let startInterval: NodeJS.Timeout | undefined
-const click = async (button: Key) => {
-  await keyboard.pressKey(button)
-  await keyboard.releaseKey(button);
-}
-const closeEnough = (a: number, b: number) => {
-  return Math.abs(a-b) < 10;
-}
+let fishing: NodeJS.Timeout | undefined
+let clicks = 0;
+const maxFishingClicks = 20;
+const optimalDelay = 0.4;
+const averageDelay = 1;
+const badDelay = 2;
+const hotkeyDelays = {
+  '8': () => clicks === maxFishingClicks / 2 ? badDelay : optimalDelay,
+  '9': () => optimalDelay,
+  '0': () => averageDelay
+};
 
-const fishingCheckInterval = (delay: number) => {
-  return setInterval(() => {
-    screen.colorAt(new Point(452, 630)).then((colorUp) => {
-      if (closeEnough(colorUp.R, 255) && closeEnough(colorUp.G, 204) && closeEnough(colorUp.B, 0)) {
-        click(Key.Up);
+export function armFishing(rodHotkey: any) {
+  disarmFishing();
+  Object.entries(hotkeyDelays).forEach(([hotkey, getDelay]) => {
+    globalShortcut.register(getCommandFor(hotkey), async () => {
+      if (!fishing) {
+        click(rodHotkey);
+        fishing = setInterval(() => {
+          click(rodHotkey)
+        }, 1000 * 5);
+
+        clicks = 0;
+        while (fishing) {
+          await new Promise(resolve => setTimeout(resolve, 1000 * getDelay()));
+          await clickIfNeeded(452, 630, 255, 204, 0, Key.Up);
+          await clickIfNeeded(453, 632, 5, 250, 5, Key.Down);
+        }
       }
     })
-    screen.colorAt(new Point(453, 632)).then((colorDown) => {
-      if (closeEnough(colorDown.R, 5) && closeEnough(colorDown.G, 250) && closeEnough(colorDown.B, 5)) {
-        click(Key.Down);
-      }
-    })
-  }, delay);
+  });
+  globalShortcut.register(getCommandFor('-'), () => {
+    stop();
+  });
 }
+
 export function disarmFishing() {
-  globalShortcut.unregister('CommandOrControl+9');
-  globalShortcut.unregister('CommandOrControl+-');
-  globalShortcut.unregister('CommandOrControl+=');
+  Object.entries(hotkeyDelays).forEach(([hotkey, _getDelay]) => { globalShortcut.unregister(getCommandFor(hotkey)); });
+  stop();
+}
+
+const getCommandFor = (hotkey: string) => 'CommandOrControl+' + hotkey;
+
+const stop = () => {
   try {
-    clearInterval(checkInterval);
-    clearInterval(startInterval);
-    checkInterval = undefined;
-    startInterval = undefined;
+    clearInterval(fishing);
+    fishing = undefined;
   } catch (e) {
 
   }
 }
-export function armFishing(rodHotkey: any) {
-  disarmFishing();
-  globalShortcut.register('CommandOrControl+9', () => {
-    if(!checkInterval && !startInterval) {
-      click(rodHotkey);
-      startInterval = setInterval(() => {
-        click(rodHotkey)
-      }, 1000 * 5);
-      checkInterval = fishingCheckInterval(1000 * 0.4);
-    }
-  });
-  globalShortcut.register('CommandOrControl+0', () => {
-    if(!checkInterval && !startInterval) {
-      click(rodHotkey);
-      startInterval = setInterval(() => {
-        click(rodHotkey)
-      }, 1000 * 5);
-      checkInterval = fishingCheckInterval(1000 * 1.4);
-    }
-  });
-  globalShortcut.register('CommandOrControl+-', () => {
-   try {
-      clearInterval(checkInterval);
-      clearInterval(startInterval);
-      checkInterval = undefined;
-      startInterval = undefined;
-    } catch (e) {
 
-   }
-  });
+const clickIfNeeded = async (width: number, height: number, red: number, green: number, blue: number, key: Key) => {
+  var color = await screen.colorAt(new Point(width, height));
+  if (closeEnough(color.R, red) && closeEnough(color.G, green) && closeEnough(color.B, blue)) {
+    click(key);
+    clicks = ++clicks % maxFishingClicks;
+    await new Promise(resolve => setTimeout(resolve, 1000));
+  }
 }
 
+const click = async (key: Key) => {
+  await keyboard.pressKey(key)
+  await keyboard.releaseKey(key);
+}
+
+const closeEnough = (a: number, b: number) => Math.abs(a - b) < 10;

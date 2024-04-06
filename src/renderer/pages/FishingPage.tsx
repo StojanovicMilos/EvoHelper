@@ -25,8 +25,9 @@ export function FishingPage() {
   return (
     <>
       <Typography variant="h6">Current hotkeys:</Typography>
-      <Typography variant="body2">Ctrl + 9: fish perfect</Typography>
-      <Typography variant="body2">Ctrl + 0: fish standard</Typography>
+      <Typography variant="body2">Ctrl + 8: almost perfect fishing (~9500 score)</Typography>
+      <Typography variant="body2">Ctrl + 9: perfect fishing</Typography>
+      <Typography variant="body2">Ctrl + 0: standard fishing</Typography>
       <Typography variant="body2">Ctrl + -: pause</Typography>
 
       <Typography variant="body1">Set 1920x1080 resolution for this to work.</Typography>
